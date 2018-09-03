@@ -69,23 +69,39 @@ symbol is preceded by a \".\", ignoring `company-minimum-prefix-length'."
   :type 'string)
 
 (defun company-go--invoke-autocomplete ()
-  (let ((code-buffer (current-buffer))
-        (gocode-args (append company-go-gocode-args
-                             (list "-f=csv-with-package"
-                                   "autocomplete"
-                                   (or (buffer-file-name) "")
-                                   (concat "c" (int-to-string (- (point) 1)))))))
+  (let* ((code-buffer (current-buffer))
+         (filename (or (buffer-file-name) ""))
+         (remotep (file-remote-p filename))
+         (gocode-args (append company-go-gocode-args
+                              (list "-f=csv-with-package"
+                                    "autocomplete"
+                                    (file-local-name filename)
+                                    (concat "c" (int-to-string (- (point) 1)))))))
     (with-temp-buffer
       (let ((temp-buffer (current-buffer)))
-        (with-current-buffer code-buffer
-          (apply #'call-process-region
-                 (point-min)
-                 (point-max)
-                 company-go-gocode-command
-                 nil
-                 temp-buffer
-                 nil
-                 gocode-args))
+        (if remotep
+            (let ((tmpfile (make-temp-file "gocode")))
+              (unwind-protect
+                  (progn
+                    (with-temp-file tmpfile
+                      (insert-buffer code-buffer))
+                    (with-current-buffer code-buffer
+                      (apply #'process-file
+                             company-go-gocode-command
+                             tmpfile
+                             temp-buffer
+                             nil
+                             gocode-args)))
+                (delete-file tmpfile)))
+          (with-current-buffer code-buffer
+            (apply #'call-process-region
+                   (point-min)
+                   (point-max)
+                   company-go-gocode-command
+                   nil
+                   temp-buffer
+                   nil
+                   gocode-args)))
         (buffer-string)))))
 
 (defun company-go--format-meta (candidate)
