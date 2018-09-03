@@ -228,7 +228,7 @@ triggers a completion immediately."
                       arg
                       (format "%s.%s" package arg)))
            (buf (godoc--get-buffer query))
-           (exit-code (call-process-shell-command
+           (exit-code (process-file-shell-command
                        (concat company-go-godoc-command " " company-go-godoc-args " " query)
                        nil buf nil)))
       (if (zerop exit-code)
